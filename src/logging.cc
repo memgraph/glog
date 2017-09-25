@@ -1248,8 +1248,12 @@ void LogMessage::Init(const char* file,
              << ' '
              << setfill(' ') << setw(5)
              << static_cast<unsigned int>(GetTID()) << setfill('0')
+#ifndef GLOG_NO_FILENAMES
              << ' '
              << data_->basename_ << ':' << data_->line_ << "] ";
+#else
+             << "] ";
+#endif
   }
   data_->num_prefix_chars_ = data_->stream_.pcount();
 
@@ -1644,8 +1648,12 @@ string LogSink::ToString(LogSeverity severity, const char* file, int line,
          << setw(6) << usecs
          << ' '
          << setfill(' ') << setw(5) << GetTID() << setfill('0')
+#ifndef GLOG_NO_FILENAMES
          << ' '
          << file << ':' << line << "] ";
+#else
+         << "] ";
+#endif
 
   stream << string(message, message_len);
   return stream.str();

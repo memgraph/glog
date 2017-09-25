@@ -66,6 +66,15 @@
 # endif
 #endif
 
+// If this flag is defined then don't store source filenames
+#ifdef GLOG_NO_FILENAMES
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wbuiltin-macro-redefined"
+#undef __FILE__
+#define __FILE__ ""
+#pragma GCC diagnostic pop
+#endif
+
 // We care a lot about number of bits things take up.  Unfortunately,
 // systems define their bit-specific ints in a lot of different ways.
 // We use our own way, and have a typedef to get there.
