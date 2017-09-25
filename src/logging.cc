@@ -180,8 +180,12 @@ GLOG_DEFINE_int32(max_log_size, 1800,
 GLOG_DEFINE_bool(stop_logging_if_full_disk, false,
                  "Stop attempting to log to disk if the disk is full.");
 
+#ifndef GLOG_NO_STACKTRACE
 GLOG_DEFINE_string(log_backtrace_at, "",
                    "Emit a backtrace when logging at file:linenum.");
+#else
+string FLAGS_log_backtrace_at = "";
+#endif
 
 // TODO(hamaji): consider windows
 #define PATH_SEPARATOR '/'
@@ -1439,11 +1443,15 @@ void LogMessage::SendToLog() EXCLUSIVE_LOCKS_REQUIRED(log_mutex) {
     log_mutex.Unlock();
     LogDestination::WaitForSinks(data_);
 
+#ifndef GLOG_NO_STACKTRACE
     const char* message = "*** Check failure stack trace: ***\n";
     if (write(STDERR_FILENO, message, strlen(message)) < 0) {
       // Ignore errors.
     }
     Fail();
+#else
+    std::exit(1);
+#endif
   }
 }
 
