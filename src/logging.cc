@@ -131,9 +131,6 @@ DEFINE_int32(stderrthreshold,
              "log messages at or above this level are copied to stderr in "
              "addition to logfiles.  This flag obsoletes --alsologtostderr.");
 
-GLOG_DEFINE_string(alsologtoemail, "",
-                   "log messages go to these email addresses "
-                   "in addition to logfiles");
 GLOG_DEFINE_bool(log_prefix, true,
                  "Prepend the log prefix to the start of each log line");
 GLOG_DEFINE_int32(minloglevel, 0, "Messages logged at a lower level than this don't "
@@ -144,12 +141,6 @@ GLOG_DEFINE_int32(logbuflevel, 0,
                   " ...)");
 GLOG_DEFINE_int32(logbufsecs, 30,
                   "Buffer log messages for at most this many seconds");
-GLOG_DEFINE_int32(logemaillevel, 999,
-                  "Email log messages logged at this level or higher"
-                  " (0 means email all; 3 means email FATAL only;"
-                  " ...)");
-GLOG_DEFINE_string(logmailer, "/bin/mail",
-                   "Mailer used to send logging email");
 
 // Compute the default value for --log_dir
 static const char* DefaultLogDir() {
@@ -392,9 +383,6 @@ const char* GetLogSeverityName(LogSeverity severity) {
   return LogSeverityNames[severity];
 }
 
-static bool SendEmailInternal(const char*dest, const char *subject,
-                              const char*body, bool use_logging);
-
 base::Logger::~Logger() {
 }
 
@@ -470,7 +458,6 @@ class LogDestination {
   static void RemoveLogSink(LogSink *destination);
   static void SetLogFilenameExtension(const char* filename_extension);
   static void SetStderrLogging(LogSeverity min_severity);
-  static void SetEmailLogging(LogSeverity min_severity, const char* addresses);
   static void LogToStderr();
   // Flush all log files that are at least at the given severity level
   static void FlushLogFiles(int min_severity);
@@ -497,10 +484,6 @@ class LogDestination {
   static void MaybeLogToStderr(LogSeverity severity, const char* message,
 			       size_t len);
 
-  // Take a log message of a particular severity and log it to email
-  // iff it's of a high enough severity to deserve it.
-  static void MaybeLogToEmail(LogSeverity severity, const char* message,
-			      size_t len);
   // Take a log message of a particular severity and log it to a file
   // iff the base filename is not "" (which means "don't log to me")
   static void MaybeLogToLogfile(LogSeverity severity,
@@ -668,16 +651,6 @@ inline void LogDestination::LogToStderr() {
   }
 }
 
-inline void LogDestination::SetEmailLogging(LogSeverity min_severity,
-					    const char* addresses) {
-  assert(min_severity >= 0 && min_severity < NUM_SEVERITIES);
-  // Prevent any subtle race conditions by wrapping a mutex lock around
-  // all this stuff.
-  MutexLock l(&log_mutex);
-  LogDestination::email_logging_severity_ = min_severity;
-  LogDestination::addresses_ = addresses;
-}
-
 static void ColoredWriteToStderr(LogSeverity severity,
                                  const char* message, size_t len) {
   const GLogColor color =
@@ -729,32 +702,6 @@ inline void LogDestination::MaybeLogToStderr(LogSeverity severity,
     // On Windows, also output to the debugger
     ::OutputDebugStringA(string(message,len).c_str());
 #endif
-  }
-}
-
-
-inline void LogDestination::MaybeLogToEmail(LogSeverity severity,
-					    const char* message, size_t len) {
-  if (severity >= email_logging_severity_ ||
-      severity >= FLAGS_logemaillevel) {
-    string to(FLAGS_alsologtoemail);
-    if (!addresses_.empty()) {
-      if (!to.empty()) {
-        to += ",";
-      }
-      to += addresses_;
-    }
-    const string subject(string("[LOG] ") + LogSeverityNames[severity] + ": " +
-                         glog_internal_namespace_::ProgramInvocationShortName());
-    string body(hostname());
-    body += "\n\n";
-    body.append(message, len);
-
-    // should NOT use SendEmail().  The caller of this function holds the
-    // log_mutex and SendEmail() calls LOG/VLOG which will block trying to
-    // acquire the log_mutex object.  Use SendEmailInternal() and set
-    // use_logging to false.
-    SendEmailInternal(to.c_str(), subject.c_str(), body.c_str(), false);
   }
 }
 
@@ -1399,8 +1346,6 @@ void LogMessage::SendToLog() EXCLUSIVE_LOCKS_REQUIRED(log_mutex) {
 
     LogDestination::MaybeLogToStderr(data_->severity_, data_->message_text_,
                                      data_->num_chars_to_log_);
-    LogDestination::MaybeLogToEmail(data_->severity_, data_->message_text_,
-                                    data_->num_chars_to_log_);
     LogDestination::LogToSinks(data_->severity_,
                                data_->fullname_, data_->basename_,
                                data_->line_, &data_->tm_time_,
@@ -1683,10 +1628,6 @@ void SetStderrLogging(LogSeverity min_severity) {
   LogDestination::SetStderrLogging(min_severity);
 }
 
-void SetEmailLogging(LogSeverity min_severity, const char* addresses) {
-  LogDestination::SetEmailLogging(min_severity, addresses);
-}
-
 void LogToStderr() {
   LogDestination::LogToStderr();
 }
@@ -1716,53 +1657,6 @@ void SetExitOnDFatal(bool value) {
 
 }  // namespace internal
 }  // namespace base
-
-// use_logging controls whether the logging functions LOG/VLOG are used
-// to log errors.  It should be set to false when the caller holds the
-// log_mutex.
-static bool SendEmailInternal(const char*dest, const char *subject,
-                              const char*body, bool use_logging) {
-  if (dest && *dest) {
-    if ( use_logging ) {
-      VLOG(1) << "Trying to send TITLE:" << subject
-              << " BODY:" << body << " to " << dest;
-    } else {
-      fprintf(stderr, "Trying to send TITLE: %s BODY: %s to %s\n",
-              subject, body, dest);
-    }
-
-    string cmd =
-        FLAGS_logmailer + " -s\"" + subject + "\" " + dest;
-    FILE* pipe = popen(cmd.c_str(), "w");
-    if (pipe != NULL) {
-      // Add the body if we have one
-      if (body)
-        fwrite(body, sizeof(char), strlen(body), pipe);
-      bool ok = pclose(pipe) != -1;
-      if ( !ok ) {
-        if ( use_logging ) {
-          LOG(ERROR) << "Problems sending mail to " << dest << ": "
-                     << StrError(errno);
-        } else {
-          fprintf(stderr, "Problems sending mail to %s: %s\n",
-                  dest, StrError(errno).c_str());
-        }
-      }
-      return ok;
-    } else {
-      if ( use_logging ) {
-        LOG(ERROR) << "Unable to send mail to " << dest;
-      } else {
-        fprintf(stderr, "Unable to send mail to %s\n", dest);
-      }
-    }
-  }
-  return false;
-}
-
-bool SendEmail(const char*dest, const char *subject, const char*body){
-  return SendEmailInternal(dest, subject, body, true);
-}
 
 static void GetTempDirectories(vector<string>* list) {
   list->clear();
