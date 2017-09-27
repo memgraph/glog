@@ -38,6 +38,18 @@
 
 #include <time.h>
 
+#define GLOG_NO_FILENAMES @GLOG_NO_FILENAMES@
+#define GLOG_NO_STACKTRACE @GLOG_NO_STACKTRACE@
+
+// If this flag is true then don't store source filenames
+#if GLOG_NO_FILENAMES
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wbuiltin-macro-redefined"
+#undef __FILE__
+#define __FILE__ ""
+#pragma GCC diagnostic pop
+#endif
+
 @ac_google_start_namespace@
 
 #include "glog/log_severity.h"

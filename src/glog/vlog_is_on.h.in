@@ -63,6 +63,17 @@
 
 #include "glog/log_severity.h"
 
+#define GLOG_NO_FILENAMES @GLOG_NO_FILENAMES@
+
+// If this flag is true then don't store source filenames
+#if GLOG_NO_FILENAMES
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wbuiltin-macro-redefined"
+#undef __FILE__
+#define __FILE__ ""
+#pragma GCC diagnostic pop
+#endif
+
 // Annoying stuff for windows -- makes sure clients can import these functions
 #ifndef GOOGLE_GLOG_DLL_DECL
 # if defined(_WIN32) && !defined(__CYGWIN__)

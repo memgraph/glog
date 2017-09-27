@@ -330,6 +330,9 @@ endif (WITH_THREADS AND Threads_FOUND)
 
 set (TEST_SRC_DIR \"${CMAKE_CURRENT_SOURCE_DIR}\")
 
+option (GLOG_NO_FILENAMES "Disable filenames in glog" 0)
+option (GLOG_NO_STACKTRACE "Disable stacktrace in glog" 0)
+
 configure_file (src/config.h.cmake.in config.h)
 configure_file (src/glog/logging.h.in glog/logging.h @ONLY)
 configure_file (src/glog/raw_logging.h.in glog/raw_logging.h @ONLY)

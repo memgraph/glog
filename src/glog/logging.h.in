@@ -48,6 +48,18 @@
 #endif
 #include <vector>
 
+#define GLOG_NO_FILENAMES @GLOG_NO_FILENAMES@
+#define GLOG_NO_STACKTRACE @GLOG_NO_STACKTRACE@
+
+// If this flag is true then don't store source filenames
+#if GLOG_NO_FILENAMES
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wbuiltin-macro-redefined"
+#undef __FILE__
+#define __FILE__ ""
+#pragma GCC diagnostic pop
+#endif
+
 #if defined(_MSC_VER)
 #define GLOG_MSVC_PUSH_DISABLE_WARNING(n) __pragma(warning(push)) \
                                      __pragma(warning(disable:n))
@@ -64,15 +76,6 @@
 # else
 #   define GOOGLE_GLOG_DLL_DECL
 # endif
-#endif
-
-// If this flag is defined then don't store source filenames
-#ifdef GLOG_NO_FILENAMES
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wbuiltin-macro-redefined"
-#undef __FILE__
-#define __FILE__ ""
-#pragma GCC diagnostic pop
 #endif
 
 // We care a lot about number of bits things take up.  Unfortunately,

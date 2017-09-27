@@ -171,7 +171,7 @@ GLOG_DEFINE_int32(max_log_size, 1800,
 GLOG_DEFINE_bool(stop_logging_if_full_disk, false,
                  "Stop attempting to log to disk if the disk is full.");
 
-#ifndef GLOG_NO_STACKTRACE
+#if GLOG_NO_STACKTRACE == 0
 GLOG_DEFINE_string(log_backtrace_at, "",
                    "Emit a backtrace when logging at file:linenum.");
 #else
@@ -1199,7 +1199,7 @@ void LogMessage::Init(const char* file,
              << ' '
              << setfill(' ') << setw(5)
              << static_cast<unsigned int>(GetTID()) << setfill('0')
-#ifndef GLOG_NO_FILENAMES
+#if GLOG_NO_FILENAMES == 0
              << ' '
              << data_->basename_ << ':' << data_->line_ << "] ";
 #else
@@ -1388,7 +1388,7 @@ void LogMessage::SendToLog() EXCLUSIVE_LOCKS_REQUIRED(log_mutex) {
     log_mutex.Unlock();
     LogDestination::WaitForSinks(data_);
 
-#ifndef GLOG_NO_STACKTRACE
+#if GLOG_NO_STACKTRACE == 0
     const char* message = "*** Check failure stack trace: ***\n";
     if (write(STDERR_FILENO, message, strlen(message)) < 0) {
       // Ignore errors.
@@ -1601,7 +1601,7 @@ string LogSink::ToString(LogSeverity severity, const char* file, int line,
          << setw(6) << usecs
          << ' '
          << setfill(' ') << setw(5) << GetTID() << setfill('0')
-#ifndef GLOG_NO_FILENAMES
+#if GLOG_NO_FILENAMES == 0
          << ' '
          << file << ':' << line << "] ";
 #else
