@@ -130,9 +130,9 @@ _END_GOOGLE_NAMESPACE_
 // The default is ERROR instead of FATAL so that users can see problems
 // when they run a program without having to look in another file.
 DEFINE_int32(stderr_threshold,
-             GOOGLE_NAMESPACE::GLOG_ERROR,
+             GOOGLE_NAMESPACE::GLOG_WARNING,
              "log messages at or above this level are copied to stderr in "
-             "addition to logfiles.  This flag obsoletes --also_log_to_stderr.");
+             "addition to logfiles.");
 
 GLOG_DEFINE_bool(log_prefix, true,
                  "Prepend the log prefix to the start of each log line");
