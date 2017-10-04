@@ -344,7 +344,7 @@ typedef unsigned __int64 uint64;
 #endif
 
 // Set whether log messages go to stderr instead of logfiles
-DECLARE_bool(logtostderr);
+extern bool FLAGS_logtostderr;
 
 // Set whether log messages go to stderr in addition to logfiles.
 DECLARE_bool(also_log_to_stderr);

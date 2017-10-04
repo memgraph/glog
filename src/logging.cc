@@ -103,8 +103,9 @@ static bool BoolFromEnv(const char *varname, bool defval) {
   return memchr("tTyY1\0", valstr[0], 6) != NULL;
 }
 
-GLOG_DEFINE_bool(logtostderr, BoolFromEnv("GOOGLE_LOGTOSTDERR", false),
-                 "log messages go to stderr instead of logfiles");
+// logtostderr is not a flag anymore
+bool FLAGS_logtostderr = true;
+
 GLOG_DEFINE_bool(also_log_to_stderr, BoolFromEnv("GOOGLE_ALSOLOGTOSTDERR", false),
                  "log messages go to stderr in addition to logfiles");
 
@@ -579,6 +580,9 @@ inline void LogDestination::SetLogDestination(LogSeverity severity,
   // all this stuff.
   MutexLock l(&log_mutex);
   log_destination(severity)->fileobject_.SetBasename(base_filename);
+  if (strcmp(base_filename, "") != 0) {
+    FLAGS_logtostderr = false;
+  }
 }
 
 inline void LogDestination::SetLogSymlink(LogSeverity severity,
