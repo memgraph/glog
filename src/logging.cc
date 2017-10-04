@@ -953,7 +953,11 @@ void LogFileObject::Write(bool force_flush,
                        << "Running on machine: "
                        << LogDestination::hostname() << '\n'
                        << "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu "
-                       << "threadid file:line] msg" << '\n';
+                       << "threadid"
+#if GLOG_NO_FILENAMES == 0
+                       << " file:line"
+#endif
+                       << "] msg" << '\n';
     const string& file_header_string = file_header_stream.str();
 
     const int header_len = file_header_string.size();
