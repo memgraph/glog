@@ -500,19 +500,19 @@ static inline bool MungeAndDiffTestStderr(const string& golden_filename) {
 struct FlagSaver {
   FlagSaver()
       : v_(FLAGS_v),
-        stderrthreshold_(FLAGS_stderrthreshold),
+        stderr_threshold_(FLAGS_stderr_threshold),
         logtostderr_(FLAGS_logtostderr),
-        alsologtostderr_(FLAGS_alsologtostderr) {}
+        also_log_to_stderr_(FLAGS_also_log_to_stderr) {}
   ~FlagSaver() {
     FLAGS_v = v_;
-    FLAGS_stderrthreshold = stderrthreshold_;
+    FLAGS_stderr_threshold = stderr_threshold_;
     FLAGS_logtostderr = logtostderr_;
-    FLAGS_alsologtostderr = alsologtostderr_;
+    FLAGS_also_log_to_stderr = also_log_to_stderr_;
   }
   int v_;
-  int stderrthreshold_;
+  int stderr_threshold_;
   bool logtostderr_;
-  bool alsologtostderr_;
+  bool also_log_to_stderr_;
 };
 #endif
 

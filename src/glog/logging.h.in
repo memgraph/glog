@@ -347,21 +347,14 @@ typedef unsigned __int64 uint64;
 DECLARE_bool(logtostderr);
 
 // Set whether log messages go to stderr in addition to logfiles.
-DECLARE_bool(alsologtostderr);
+DECLARE_bool(also_log_to_stderr);
 
 // Log messages at a level >= this flag are automatically sent to
 // stderr in addition to log files.
-DECLARE_int32(stderrthreshold);
+DECLARE_int32(stderr_threshold);
 
 // Set whether the log prefix should be prepended to each line of output.
 DECLARE_bool(log_prefix);
-
-// Log suppression level: messages logged at a lower level than this
-// are suppressed.
-DECLARE_int32(minloglevel);
-
-// Set the log file mode.
-DECLARE_int32(logfile_mode);
 
 DECLARE_int32(v);  // in vlog_is_on.cc
 

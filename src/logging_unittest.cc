@@ -184,8 +184,8 @@ int main(int argc, char **argv) {
 
   // Test some basics before InitGoogleLogging:
   CaptureTestStderr();
-  LogWithLevels(FLAGS_v, FLAGS_stderrthreshold,
-                FLAGS_logtostderr, FLAGS_alsologtostderr);
+  LogWithLevels(FLAGS_v, FLAGS_stderr_threshold,
+                FLAGS_logtostderr, FLAGS_also_log_to_stderr);
   LogWithLevels(0, 0, 0, 0);  // simulate "before global c-tors"
   const string early_stderr = GetCapturedTestStderr();
 
@@ -357,15 +357,15 @@ void TestRawLogging() {
 
 void LogWithLevels(int v, int severity, bool err, bool alsoerr) {
   RAW_LOG(INFO,
-          "Test: v=%d stderrthreshold=%d logtostderr=%d alsologtostderr=%d",
+          "Test: v=%d stderr_threshold=%d logtostderr=%d also_log_to_stderr=%d",
           v, severity, err, alsoerr);
 
   FlagSaver saver;
 
   FLAGS_v = v;
-  FLAGS_stderrthreshold = severity;
+  FLAGS_stderr_threshold = severity;
   FLAGS_logtostderr = err;
-  FLAGS_alsologtostderr = alsoerr;
+  FLAGS_also_log_to_stderr = alsoerr;
 
   RAW_VLOG(-1, "vlog -1");
   RAW_VLOG(0, "vlog 0");

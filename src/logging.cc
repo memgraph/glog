@@ -105,7 +105,7 @@ static bool BoolFromEnv(const char *varname, bool defval) {
 
 GLOG_DEFINE_bool(logtostderr, BoolFromEnv("GOOGLE_LOGTOSTDERR", false),
                  "log messages go to stderr instead of logfiles");
-GLOG_DEFINE_bool(alsologtostderr, BoolFromEnv("GOOGLE_ALSOLOGTOSTDERR", false),
+GLOG_DEFINE_bool(also_log_to_stderr, BoolFromEnv("GOOGLE_ALSOLOGTOSTDERR", false),
                  "log messages go to stderr in addition to logfiles");
 
 #ifdef OS_LINUX
@@ -129,14 +129,14 @@ _END_GOOGLE_NAMESPACE_
 //
 // The default is ERROR instead of FATAL so that users can see problems
 // when they run a program without having to look in another file.
-DEFINE_int32(stderrthreshold,
+DEFINE_int32(stderr_threshold,
              GOOGLE_NAMESPACE::GLOG_ERROR,
              "log messages at or above this level are copied to stderr in "
-             "addition to logfiles.  This flag obsoletes --alsologtostderr.");
+             "addition to logfiles.  This flag obsoletes --also_log_to_stderr.");
 
 GLOG_DEFINE_bool(log_prefix, true,
                  "Prepend the log prefix to the start of each log line");
-GLOG_DEFINE_int32(minloglevel, 0, "Messages logged at a lower level than this don't "
+GLOG_DEFINE_int32(min_log_level, 0, "Messages logged at a lower level than this don't "
                   "actually get logged anywhere");
 
 #if GLOG_NO_BUFFER_SETTINGS == 0
@@ -151,7 +151,7 @@ int32_t FLAGS_logbuflevel = 0;
 int32_t FLAGS_logbufsecs = 30;
 #endif
 
-GLOG_DEFINE_int32(logfile_mode, 0664, "Log file mode/permissions.");
+GLOG_DEFINE_int32(log_file_mode, 0664, "Log file mode/permissions.");
 
 GLOG_DEFINE_int32(max_log_size, 1800,
                   "approx. maximum log file size (in MB). A value of 0 will "
@@ -627,7 +627,7 @@ inline void LogDestination::SetStderrLogging(LogSeverity min_severity) {
   // Prevent any subtle race conditions by wrapping a mutex lock around
   // all this stuff.
   MutexLock l(&log_mutex);
-  FLAGS_stderrthreshold = min_severity;
+  FLAGS_stderr_threshold = min_severity;
 }
 
 inline void LogDestination::LogToStderr() {
@@ -684,7 +684,7 @@ static void WriteToStderr(const char* message, size_t len) {
 
 inline void LogDestination::MaybeLogToStderr(LogSeverity severity,
 					     const char* message, size_t len) {
-  if ((severity >= FLAGS_stderrthreshold) || FLAGS_alsologtostderr) {
+  if ((severity >= FLAGS_stderr_threshold) || FLAGS_also_log_to_stderr) {
     ColoredWriteToStderr(severity, message, len);
 #ifdef OS_WINDOWS
     // On Windows, also output to the debugger
@@ -843,7 +843,7 @@ bool LogFileObject::CreateLogfile(const string& time_pid_string) {
   string string_filename = base_filename_+filename_extension_+
                            time_pid_string;
   const char* filename = string_filename.c_str();
-  int fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, FLAGS_logfile_mode);
+  int fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, FLAGS_log_file_mode);
   if (fd == -1) return false;
 #ifdef HAVE_FCNTL
   // Mark the file close-on-exec. We don't really care if this fails
@@ -1162,7 +1162,7 @@ ostream& LogMessage::stream() {
 // Flush buffered message, called by the destructor, or any other function
 // that needs to synchronize the log.
 void LogMessage::Flush() {
-  if (data_->has_been_flushed_ || data_->severity_ < FLAGS_minloglevel)
+  if (data_->has_been_flushed_ || data_->severity_ < FLAGS_min_log_level)
     return;
 
   data_->num_chars_to_log_ = data_->stream_.pcount();
