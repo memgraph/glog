@@ -109,10 +109,14 @@ GLOG_DEFINE_bool(alsologtostderr, BoolFromEnv("GOOGLE_ALSOLOGTOSTDERR", false),
                  "log messages go to stderr in addition to logfiles");
 
 #ifdef OS_LINUX
+#if GLOG_NO_BUFFER_SETTINGS == 0
 GLOG_DEFINE_bool(drop_log_memory, true, "Drop in-memory buffers of log contents. "
                  "Logs can grow very quickly and they are rarely read before they "
                  "need to be evicted from memory. Instead, drop them from memory "
                  "as soon as they are flushed to disk.");
+#else
+bool FLAGS_drop_log_memory = true;
+#endif
 _START_GOOGLE_NAMESPACE_
 namespace logging {
 static const int64 kPageSize = getpagesize();
@@ -134,12 +138,18 @@ GLOG_DEFINE_bool(log_prefix, true,
                  "Prepend the log prefix to the start of each log line");
 GLOG_DEFINE_int32(minloglevel, 0, "Messages logged at a lower level than this don't "
                   "actually get logged anywhere");
+
+#if GLOG_NO_BUFFER_SETTINGS == 0
 GLOG_DEFINE_int32(logbuflevel, 0,
                   "Buffer log messages logged at this level or lower"
                   " (-1 means don't buffer; 0 means buffer INFO only;"
                   " ...)");
 GLOG_DEFINE_int32(logbufsecs, 30,
                   "Buffer log messages for at most this many seconds");
+#else
+int32_t FLAGS_logbuflevel = 0;
+int32_t FLAGS_logbufsecs = 30;
+#endif
 
 GLOG_DEFINE_int32(logfile_mode, 0664, "Log file mode/permissions.");
 

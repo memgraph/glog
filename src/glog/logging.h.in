@@ -50,6 +50,7 @@
 
 #define GLOG_NO_FILENAMES @GLOG_NO_FILENAMES@
 #define GLOG_NO_STACKTRACE @GLOG_NO_STACKTRACE@
+#define GLOG_NO_BUFFER_SETTINGS @GLOG_NO_BUFFER_SETTINGS@
 
 // If this flag is true then don't store source filenames
 #if GLOG_NO_FILENAMES
@@ -354,13 +355,6 @@ DECLARE_int32(stderrthreshold);
 
 // Set whether the log prefix should be prepended to each line of output.
 DECLARE_bool(log_prefix);
-
-// Log messages at a level <= this flag are buffered.
-// Log messages at a higher level are flushed immediately.
-DECLARE_int32(logbuflevel);
-
-// Sets the maximum number of seconds which logs may be buffered for.
-DECLARE_int32(logbufsecs);
 
 // Log suppression level: messages logged at a lower level than this
 // are suppressed.
