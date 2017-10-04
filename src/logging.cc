@@ -107,8 +107,7 @@ GLOG_DEFINE_bool(logtostderr, BoolFromEnv("GOOGLE_LOGTOSTDERR", false),
                  "log messages go to stderr instead of logfiles");
 GLOG_DEFINE_bool(alsologtostderr, BoolFromEnv("GOOGLE_ALSOLOGTOSTDERR", false),
                  "log messages go to stderr in addition to logfiles");
-GLOG_DEFINE_bool(colorlogtostderr, false,
-                 "color messages logged to stderr (if supported by terminal)");
+
 #ifdef OS_LINUX
 GLOG_DEFINE_bool(drop_log_memory, true, "Drop in-memory buffers of log contents. "
                  "Logs can grow very quickly and they are rarely read before they "
@@ -142,27 +141,7 @@ GLOG_DEFINE_int32(logbuflevel, 0,
 GLOG_DEFINE_int32(logbufsecs, 30,
                   "Buffer log messages for at most this many seconds");
 
-// Compute the default value for --log_dir
-static const char* DefaultLogDir() {
-  const char* env;
-  env = getenv("GOOGLE_LOG_DIR");
-  if (env != NULL && env[0] != '\0') {
-    return env;
-  }
-  env = getenv("TEST_TMPDIR");
-  if (env != NULL && env[0] != '\0') {
-    return env;
-  }
-  return "";
-}
-
 GLOG_DEFINE_int32(logfile_mode, 0664, "Log file mode/permissions.");
-
-GLOG_DEFINE_string(log_dir, DefaultLogDir(),
-                   "If specified, logfiles are written into this directory instead "
-                   "of the default logging directory.");
-GLOG_DEFINE_string(log_link, "", "Put additional links to the log "
-                   "files in this directory");
 
 GLOG_DEFINE_int32(max_log_size, 1800,
                   "approx. maximum log file size (in MB). A value of 0 will "
@@ -423,7 +402,6 @@ class LogFileObject : public base::Logger {
   static const uint32 kRolloverAttemptFrequency = 0x20;
 
   Mutex lock_;
-  bool base_filename_selected_;
   string base_filename_;
   string symlink_basename_;
   string filename_extension_;     // option users can specify (eg to add port#)
@@ -654,7 +632,7 @@ inline void LogDestination::LogToStderr() {
 static void ColoredWriteToStderr(LogSeverity severity,
                                  const char* message, size_t len) {
   const GLogColor color =
-      (LogDestination::terminal_supports_color() && FLAGS_colorlogtostderr) ?
+      LogDestination::terminal_supports_color() ?
       SeverityToColor(severity) : COLOR_DEFAULT;
 
   // Avoid using cerr from this module since we may get called during
@@ -783,8 +761,7 @@ namespace {
 
 LogFileObject::LogFileObject(LogSeverity severity,
                              const char* base_filename)
-  : base_filename_selected_(base_filename != NULL),
-    base_filename_((base_filename != NULL) ? base_filename : ""),
+  : base_filename_((base_filename != NULL) ? base_filename : ""),
     symlink_basename_(glog_internal_namespace_::ProgramInvocationShortName()),
     filename_extension_(),
     file_(NULL),
@@ -807,7 +784,6 @@ LogFileObject::~LogFileObject() {
 
 void LogFileObject::SetBasename(const char* basename) {
   MutexLock l(&lock_);
-  base_filename_selected_ = true;
   if (base_filename_ != basename) {
     // Get rid of old log file since we are changing names
     if (file_ != NULL) {
@@ -896,16 +872,6 @@ bool LogFileObject::CreateLogfile(const string& time_pid_string) {
     if (symlink(linkdest, linkpath.c_str()) != 0) {
       // silently ignore failures
     }
-
-    // Make an additional link to the log file in a place specified by
-    // FLAGS_log_link, if indicated
-    if (!FLAGS_log_link.empty()) {
-      linkpath = FLAGS_log_link + "/" + linkname;
-      unlink(linkpath.c_str());                  // delete old one if it exists
-      if (symlink(filename, linkpath.c_str()) != 0) {
-        // silently ignore failures
-      }
-    }
 #endif
   }
 
@@ -919,7 +885,7 @@ void LogFileObject::Write(bool force_flush,
   MutexLock l(&lock_);
 
   // We don't log if the base_name_ is "" (which means "don't write")
-  if (base_filename_selected_ && base_filename_.empty()) {
+  if (base_filename_.empty()) {
     return;
   }
 
@@ -956,62 +922,11 @@ void LogFileObject::Write(bool force_flush,
                     << GetMainThreadPid();
     const string& time_pid_string = time_pid_stream.str();
 
-    if (base_filename_selected_) {
-      if (!CreateLogfile(time_pid_string)) {
-        perror("Could not create log file");
-        fprintf(stderr, "COULD NOT CREATE LOGFILE '%s'!\n",
-                time_pid_string.c_str());
-        return;
-      }
-    } else {
-      // If no base filename for logs of this severity has been set, use a
-      // default base filename of
-      // "<program name>.<hostname>.<user name>.log.<severity level>.".  So
-      // logfiles will have names like
-      // webserver.examplehost.root.log.INFO.19990817-150000.4354, where
-      // 19990817 is a date (1999 August 17), 150000 is a time (15:00:00),
-      // and 4354 is the pid of the logging process.  The date & time reflect
-      // when the file was created for output.
-      //
-      // Where does the file get put?  Successively try the directories
-      // "/tmp", and "."
-      string stripped_filename(
-          glog_internal_namespace_::ProgramInvocationShortName());
-      string hostname;
-      GetHostName(&hostname);
-
-      string uidname = MyUserName();
-      // We should not call CHECK() here because this function can be
-      // called after holding on to log_mutex. We don't want to
-      // attempt to hold on to the same mutex, and get into a
-      // deadlock. Simply use a name like invalid-user.
-      if (uidname.empty()) uidname = "invalid-user";
-
-      stripped_filename = stripped_filename+'.'+hostname+'.'
-                          +uidname+".log."
-                          +LogSeverityNames[severity_]+'.';
-      // We're going to (potentially) try to put logs in several different dirs
-      const vector<string> & log_dirs = GetLoggingDirectories();
-
-      // Go through the list of dirs, and try to create the log file in each
-      // until we succeed or run out of options
-      bool success = false;
-      for (vector<string>::const_iterator dir = log_dirs.begin();
-           dir != log_dirs.end();
-           ++dir) {
-        base_filename_ = *dir + "/" + stripped_filename;
-        if ( CreateLogfile(time_pid_string) ) {
-          success = true;
-          break;
-        }
-      }
-      // If we never succeeded, we have to give up
-      if ( success == false ) {
-        perror("Could not create logging file");
-        fprintf(stderr, "COULD NOT CREATE A LOGGINGFILE %s!",
-                time_pid_string.c_str());
-        return;
-      }
+    if (!CreateLogfile(time_pid_string)) {
+      perror("Could not create log file");
+      fprintf(stderr, "COULD NOT CREATE LOGFILE '%s'!\n",
+              time_pid_string.c_str());
+      return;
     }
 
     // Write a header message into the log file
@@ -1707,36 +1622,9 @@ static void GetTempDirectories(vector<string>* list) {
 #endif
 }
 
-static vector<string>* logging_directories_list;
-
-const vector<string>& GetLoggingDirectories() {
-  // Not strictly thread-safe but we're called early in InitGoogle().
-  if (logging_directories_list == NULL) {
-    logging_directories_list = new vector<string>;
-
-    if ( !FLAGS_log_dir.empty() ) {
-      // A dir was specified, we should use it
-      logging_directories_list->push_back(FLAGS_log_dir.c_str());
-    } else {
-      GetTempDirectories(logging_directories_list);
-#ifdef OS_WINDOWS
-      char tmp[MAX_PATH];
-      if (GetWindowsDirectoryA(tmp, MAX_PATH))
-        logging_directories_list->push_back(tmp);
-      logging_directories_list->push_back(".\\");
-#else
-      logging_directories_list->push_back("./");
-#endif
-    }
-  }
-  return *logging_directories_list;
-}
-
 void TestOnly_ClearLoggingDirectoriesList() {
   fprintf(stderr, "TestOnly_ClearLoggingDirectoriesList should only be "
           "called from test code.\n");
-  delete logging_directories_list;
-  logging_directories_list = NULL;
 }
 
 void GetExistingTempDirectories(vector<string>* list) {
@@ -1991,8 +1879,6 @@ void InitGoogleLogging(const char* argv0) {
 void ShutdownGoogleLogging() {
   glog_internal_namespace_::ShutdownGoogleLoggingUtilities();
   LogDestination::DeleteLogDestinations();
-  delete logging_directories_list;
-  logging_directories_list = NULL;
 }
 
 _END_GOOGLE_NAMESPACE_

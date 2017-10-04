@@ -175,7 +175,6 @@ static void BM_vlog(int n) {
 BENCHMARK(BM_vlog);
 
 int main(int argc, char **argv) {
-  FLAGS_colorlogtostderr = false;
 #ifdef HAVE_LIB_GFLAGS
   ParseCommandLineFlags(&argc, &argv, true);
 #endif
