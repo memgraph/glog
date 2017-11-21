@@ -51,6 +51,7 @@
 #define GLOG_NO_FILENAMES @GLOG_NO_FILENAMES@
 #define GLOG_NO_STACKTRACE @GLOG_NO_STACKTRACE@
 #define GLOG_NO_BUFFER_SETTINGS @GLOG_NO_BUFFER_SETTINGS@
+#define GLOG_NO_TIME_PID_FILENAME @GLOG_NO_TIME_PID_FILENAME@
 
 // If this flag is true then don't store source filenames
 #if GLOG_NO_FILENAMES
@@ -1377,6 +1378,9 @@ GOOGLE_GLOG_DLL_DECL void FlushLogFiles(LogSeverity min_severity);
 // the specified severity level. Thread-hostile because it ignores
 // locking -- used for catastrophic failures.
 GOOGLE_GLOG_DLL_DECL void FlushLogFilesUnsafe(LogSeverity min_severity);
+
+// Closes the underlying file and opens it on the next log message.
+GOOGLE_GLOG_DLL_DECL void CloseLogDestination(LogSeverity severity);
 
 //
 // Set the destination to which a particular severity level of log

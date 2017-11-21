@@ -409,6 +409,9 @@ class LogFileObject : public base::Logger {
   // acquiring lock_.
   void FlushUnlocked();
 
+  // Closes the underlying file. Next call to Write will open a new one.
+  void Close();
+
  private:
   static const uint32 kRolloverAttemptFrequency = 0x20;
 
@@ -439,6 +442,7 @@ class LogDestination {
   friend void base::SetLogger(LogSeverity, base::Logger*);
 
   // These methods are just forwarded to by their global versions.
+  static void CloseLogDestination(LogSeverity severity);
   static void SetLogDestination(LogSeverity severity,
 				const char* base_filename);
   static void SetLogSymlink(LogSeverity severity,
@@ -571,6 +575,14 @@ inline void LogDestination::FlushLogFiles(int min_severity) {
       log->logger_->Flush();
     }
   }
+}
+
+inline void LogDestination::CloseLogDestination(LogSeverity severity) {
+  assert(severity >= 0 && severity < NUM_SEVERITIES);
+  // Prevent any subtle race conditions by wrapping a mutex lock around
+  // all this stuff.
+  MutexLock l(&log_mutex);
+  log_destination(severity)->fileobject_.Close();
 }
 
 inline void LogDestination::SetLogDestination(LogSeverity severity,
@@ -832,6 +844,15 @@ void LogFileObject::Flush() {
   FlushUnlocked();
 }
 
+void LogFileObject::Close() {
+  MutexLock l(&lock_);
+  if (file_ != NULL) {
+    fclose(file_);
+    file_ = NULL;
+    rollover_attempt_ = kRolloverAttemptFrequency-1;
+  }
+}
+
 void LogFileObject::FlushUnlocked(){
   if (file_ != NULL) {
     fflush(file_);
@@ -844,10 +865,17 @@ void LogFileObject::FlushUnlocked(){
 }
 
 bool LogFileObject::CreateLogfile(const string& time_pid_string) {
+#if GLOG_NO_TIME_PID_FILENAME == 0
   string string_filename = base_filename_+filename_extension_+
                            time_pid_string;
+  int open_flags = O_WRONLY | O_CREAT | O_EXCL;
+#else
+  string string_filename = base_filename_ + filename_extension_;
+  // Without time and pid, we want to keep appending to the existing log.
+  int open_flags = O_WRONLY | O_CREAT | O_APPEND;
+#endif
   const char* filename = string_filename.c_str();
-  int fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, FLAGS_log_file_mode);
+  int fd = open(filename, open_flags, FLAGS_log_file_mode);
   if (fd == -1) return false;
 #ifdef HAVE_FCNTL
   // Mark the file close-on-exec. We don't really care if this fails
@@ -1495,6 +1523,10 @@ void FlushLogFiles(LogSeverity min_severity) {
 
 void FlushLogFilesUnsafe(LogSeverity min_severity) {
   LogDestination::FlushLogFilesUnsafe(min_severity);
+}
+
+void CloseLogDestination(LogSeverity severity) {
+  LogDestination::CloseLogDestination(severity);
 }
 
 void SetLogDestination(LogSeverity severity, const char* base_filename) {
